@@ -1,0 +1,140 @@
+// controllers/stats.controller.js — Statistics page (Page 10), admin / developer only.
+// User Flow 10: admin opens statistics -> DB SELECT -> backend aggregates and sends back.
+const pool = require('../db');
+const { serverError } = require('../middleware/errors');
+const { MEDIA_SELECT } = require('./media.query');
+const { addMediaThumbnail } = require('../thumbnails');
+
+// GET /stats — dashboard overview.
+exports.overview = async (req, res) => {
+  try {
+    const [[totals], [usersByRole], [byType], [byGenre], [byUniverse],
+           [topWatchlisted], [topRated]] = await Promise.all([
+      pool.query(`
+        SELECT (SELECT COUNT(*) FROM Media)     AS media,
+               (SELECT COUNT(*) FROM Movies)    AS movies,
+               (SELECT COUNT(*) FROM Series)    AS series,
+               (SELECT COUNT(*) FROM Book)      AS books,
+               (SELECT COUNT(*) FROM Universe)  AS universes,
+               (SELECT COUNT(*) FROM User)      AS accounts,
+               (SELECT COUNT(*) FROM Watchlist) AS watchlist_entries`),
+      pool.query(`
+        SELECT 'user' AS role, COUNT(*) AS count FROM Normal_User
+        UNION ALL SELECT 'admin', COUNT(*) FROM Admin
+        UNION ALL SELECT 'developer', COUNT(*) FROM Developer`),
+      pool.query(`
+        SELECT CASE WHEN mv.id IS NOT NULL THEN 'Movie' ELSE 'Series' END AS media_type,
+               COUNT(*) AS count, ROUND(AVG(m.rating), 2) AS avg_rating
+        FROM Media m LEFT JOIN Movies mv ON mv.id = m.id
+        GROUP BY media_type`),
+      pool.query(`
+        SELECT g.genre_name, COUNT(m.id) AS count, ROUND(AVG(m.rating), 2) AS avg_rating
+        FROM Genre g LEFT JOIN Media m ON m.main_genre_id = g.genre_id
+        GROUP BY g.genre_id, g.genre_name
+        ORDER BY count DESC, g.genre_name`),
+      pool.query(`
+        SELECT COALESCE(u.universe_name, '(standalone)') AS universe_name,
+               COUNT(*) AS count, ROUND(AVG(m.rating), 2) AS avg_rating
+        FROM Media m LEFT JOIN Universe u ON u.universe_id = m.universe_id
+        GROUP BY u.universe_id, u.universe_name
+        ORDER BY count DESC`),
+      pool.query(`
+        SELECT m.id, m.title, COUNT(*) AS watchlist_count
+        FROM Watchlist w JOIN Media m ON m.id = w.id
+        GROUP BY m.id, m.title
+        ORDER BY watchlist_count DESC, m.title
+        LIMIT 10`),
+      pool.query(`
+        SELECT id, title, rating FROM Media
+        ORDER BY rating DESC, title
+        LIMIT 10`)
+    ]);
+
+    res.json({
+      totals: totals[0],
+      users_by_role: usersByRole,
+      media_by_type: byType,
+      media_by_genre: byGenre,
+      media_by_universe: byUniverse,
+      top_watchlisted: topWatchlisted,
+      top_rated: topRated
+    });
+  } catch (err) {
+    serverError(res, err);
+  }
+};
+
+// GET /stats/group?by=genre|universe|category|country|type|age_rating|status|director|year
+//                 &sort=count|avg_rating|watchlist|name
+// "Selected, sorted and grouped by custom feature for further analysis."
+// Only names from these lists are ever put into the SQL text.
+const GROUP_BY = {
+  genre:      'main_genre',
+  universe:   "COALESCE(universe_name, '(standalone)')",
+  category:   'category',
+  country:    'country',
+  type:       'media_type',
+  age_rating: 'age_rating',
+  status:     'status',
+  director:   'director_name',
+  year:       'YEAR(publish_date)'
+};
+const SORT_BY = {
+  count:      'media_count DESC',
+  avg_rating: 'avg_rating DESC',
+  watchlist:  'watchlist_count DESC',
+  name:       'group_name ASC'
+};
+
+exports.group = async (req, res) => {
+  try {
+    const by = req.query.by || 'genre';
+    const groupExpr = GROUP_BY[by];
+    if (!groupExpr)
+      return res.status(400).json({ error: `by must be one of: ${Object.keys(GROUP_BY).join(', ')}` });
+    const order = SORT_BY[req.query.sort] || SORT_BY.count;
+
+    const [rows] = await pool.query(`
+      SELECT ${groupExpr}        AS group_name,
+             COUNT(*)            AS media_count,
+             ROUND(AVG(rating), 2) AS avg_rating,
+             MAX(rating)         AS best_rating,
+             SUM(watchlist_count) AS watchlist_count
+      FROM (
+        SELECT x.*, (SELECT COUNT(*) FROM Watchlist w WHERE w.id = x.id) AS watchlist_count
+        FROM (${MEDIA_SELECT}) AS x
+      ) AS media
+      GROUP BY group_name
+      ORDER BY ${order}, group_name`);
+    res.json({ grouped_by: by, groups: rows });
+  } catch (err) {
+    serverError(res, err);
+  }
+};
+
+// GET /stats/media/:id — the profile of one media for analysis.
+exports.mediaProfile = async (req, res) => {
+  try {
+    const id = req.params.id;
+    const [rows] = await pool.execute(`
+      SELECT x.*,
+        (SELECT COUNT(*) FROM Watchlist w      WHERE w.id = x.id)  AS watchlist_count,
+        (SELECT COUNT(*) FROM Media_Actor ma   WHERE ma.id = x.id) AS actor_count,
+        (SELECT COUNT(*) FROM Media_Platform p WHERE p.id = x.id)  AS platform_count,
+        (SELECT COUNT(*) FROM Media_Book mb    WHERE mb.id = x.id) AS book_count,
+        (SELECT COUNT(*) FROM Media c WHERE c.sequel_parent_id = x.id) AS sequel_count,
+        (SELECT COUNT(*) FROM Media c WHERE c.remake_parent_id = x.id) AS remake_count,
+        (SELECT COUNT(*) + 1 FROM Media o WHERE o.rating > x.rating)   AS rating_rank
+      FROM (${MEDIA_SELECT}) AS x
+      WHERE x.id = ?`, [id]);
+    if (rows.length === 0) return res.status(404).json({ error: 'media not found' });
+
+    const [watchers] = await pool.execute(`
+      SELECT u.accountID, u.username
+      FROM Watchlist w JOIN User u ON u.accountID = w.accountID
+      WHERE w.id = ? ORDER BY u.username`, [id]);
+    res.json({ ...addMediaThumbnail(rows[0]), watchers });
+  } catch (err) {
+    serverError(res, err);
+  }
+};

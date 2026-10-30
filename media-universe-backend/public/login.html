@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Log in · Media Universe</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="site-header"></div>
+  <main>
+    <!-- Page 5: Log-in / create account -->
+    <div class="auth-box panel">
+      <div class="tabs">
+        <button data-tab="login" class="active">Log in</button>
+        <button data-tab="register">Create account</button>
+      </div>
+
+      <form id="login-form">
+        <div class="field">
+          <label for="login-username">Username or email</label>
+          <input id="login-username" autocomplete="username" required>
+        </div>
+        <div class="field">
+          <label for="login-password">Password</label>
+          <input id="login-password" type="password" autocomplete="current-password" required>
+        </div>
+        <button class="btn btn-primary" style="width:100%">Log in</button>
+        <p class="form-msg" id="login-msg"></p>
+      </form>
+
+      <form id="register-form" class="hidden">
+        <div class="field">
+          <label for="reg-username">Username</label>
+          <input id="reg-username" maxlength="60" autocomplete="username" required>
+        </div>
+        <div class="field">
+          <label for="reg-gmail">Email</label>
+          <input id="reg-gmail" type="email" maxlength="100" autocomplete="email" required>
+        </div>
+        <div class="field">
+          <label for="reg-password">Password</label>
+          <input id="reg-password" type="password" minlength="8" autocomplete="new-password" required>
+          <p class="hint">At least 8 characters. Stored as a bcrypt hash, never as plain text.</p>
+        </div>
+        <button class="btn btn-primary" style="width:100%">Create account</button>
+        <p class="form-msg" id="register-msg"></p>
+      </form>
+    </div>
+  </main>
+  <script src="js/common.js"></script>
+  <script src="js/login.js"></script>
+</body>
+</html>

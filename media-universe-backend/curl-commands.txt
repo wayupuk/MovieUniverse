@@ -1,0 +1,200 @@
+=====================================================================
+ Cross-referencing Media Universe — common curl commands
+=====================================================================
+Start the server first:   node app.js
+Copy a block into the terminal. Lines starting with # are comments.
+
+Status codes: 200 ok · 201 created · 204 deleted · 400 bad input
+              401 not logged in · 403 wrong role · 404 not found · 409 duplicate
+
+
+---------------------------------------------------------------------
+ 0. SETUP — base URL and login tokens (run this block first)
+---------------------------------------------------------------------
+B=http://localhost:4500
+
+# Create a normal user once (409 if it already exists — that's fine)
+curl -X POST $B/accounts/register -H 'Content-Type: application/json' \
+  -d '{"username":"alice","password":"secret123","gmail":"alice@gmail.com"}'
+
+# Log in and keep the tokens in variables
+TOKEN=$(curl -s -X POST $B/accounts/login -H 'Content-Type: application/json' \
+  -d '{"username":"alice","password":"secret123"}' | node -pe 'JSON.parse(require("fs").readFileSync(0)).token')
+
+ADMIN=$(curl -s -X POST $B/accounts/login -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"admin123"}' | node -pe 'JSON.parse(require("fs").readFileSync(0)).token')
+
+echo "user=$TOKEN  admin=$ADMIN"
+
+# Tip: add  | node -pe 'JSON.stringify(JSON.parse(require("fs").readFileSync(0)),null,2)'
+#      to the end of any GET command to pretty-print the JSON.
+
+
+---------------------------------------------------------------------
+ 1. ACCOUNTS  (Page 5: Log-in)
+---------------------------------------------------------------------
+# Register (Flow 5)
+curl -X POST $B/accounts/register -H 'Content-Type: application/json' \
+  -d '{"username":"bob","password":"secret123","gmail":"bob@gmail.com"}'
+
+# Log in — username can also be the gmail
+curl -X POST $B/accounts/login -H 'Content-Type: application/json' \
+  -d '{"username":"alice@gmail.com","password":"secret123"}'
+
+# Who am I
+curl $B/accounts/me -H "Authorization: Bearer $TOKEN"
+
+# Log out — uses bob's own token so $TOKEN keeps working for the commands below
+BOB=$(curl -s -X POST $B/accounts/login -H 'Content-Type: application/json' \
+  -d '{"username":"bob","password":"secret123"}' | node -pe 'JSON.parse(require("fs").readFileSync(0)).token')
+curl -X POST $B/accounts/logout -H "Authorization: Bearer $BOB"
+curl $B/accounts/me -H "Authorization: Bearer $BOB"          # now 401: token no longer works
+
+# All accounts with role and watchlist size (admin / developer)
+curl $B/accounts -H "Authorization: Bearer $ADMIN"
+
+# Developer only: change a role / delete an account (admin gets 403)
+DEV=$(curl -s -X POST $B/accounts/login -H 'Content-Type: application/json' \
+  -d '{"username":"developer","password":"dev12345"}' | node -pe 'JSON.parse(require("fs").readFileSync(0)).token')
+BOB_ID=$(curl -s $B/accounts -H "Authorization: Bearer $DEV" | node -pe 'JSON.parse(require("fs").readFileSync(0)).find(a=>a.username==="bob").accountID')
+curl -X PUT $B/accounts/$BOB_ID/role -H "Authorization: Bearer $ADMIN" \
+  -H 'Content-Type: application/json' -d '{"role":"admin"}'                      # 403 for admin
+curl -X PUT $B/accounts/$BOB_ID/role -H "Authorization: Bearer $DEV" \
+  -H 'Content-Type: application/json' -d '{"role":"admin","contract":"Content team"}'
+curl -X PUT $B/accounts/$BOB_ID/role -H "Authorization: Bearer $DEV" \
+  -H 'Content-Type: application/json' -d '{"role":"user"}'
+curl -X DELETE $B/accounts/$BOB_ID -H "Authorization: Bearer $DEV"
+
+
+---------------------------------------------------------------------
+ 2. MEDIA — Home, Search, Information page  (everyone)
+---------------------------------------------------------------------
+# Home page: all media
+curl $B/media
+
+# Filters: type=movie|series  genre=<id>  universe=<id>  category  country  status
+# Sort:    sort=rating|newest|oldest|title      Limit: limit=1..100
+curl "$B/media?type=series&sort=rating"
+curl "$B/media?universe=3&sort=oldest"
+curl "$B/media?genre=1&limit=5"
+curl "$B/media?category=Animation%202D"
+
+# Search (Flow 1) — title, synopsis, director, universe, genre, actor, book, author
+curl "$B/media/search?q=harry"
+curl "$B/media/search?q=robert%20downey"
+curl "$B/media/search?q=rowling&type=movie"
+
+# Information page of one media (Flow 2)
+curl $B/media/2
+
+
+---------------------------------------------------------------------
+ 3. GENRES  (Page 4)
+---------------------------------------------------------------------
+curl $B/genres                 # all genres with counts
+curl $B/genres/12/media        # Flow 3: media with this main OR sub genre
+
+
+---------------------------------------------------------------------
+ 4. UNIVERSES  (Pages 6 and 7)
+---------------------------------------------------------------------
+curl $B/universes              # Flow 9: top 10 universes
+curl $B/universes/1            # all media (stored procedure get_universe_media) + books
+
+# Add a universe (admin / developer)
+curl -X POST $B/universes -H "Authorization: Bearer $ADMIN" \
+  -H 'Content-Type: application/json' -d '{"universe_name":"The Lion King Universe"}'
+
+
+---------------------------------------------------------------------
+ 5. WATCHLIST  (Page 8, logged-in normal user)
+---------------------------------------------------------------------
+# Add (Flow 4)
+curl -X POST $B/watchlist -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"media_id":14}'
+
+# List my watchlist
+curl $B/watchlist -H "Authorization: Bearer $TOKEN"
+
+# Remove (Flow 6)
+curl -X DELETE $B/watchlist/14 -H "Authorization: Bearer $TOKEN"
+
+
+---------------------------------------------------------------------
+ 6. ADMIN — Edit page  (Page 9, admin / developer)
+---------------------------------------------------------------------
+# Dropdown data for the form (directors, genres, universes, actors, platforms, books)
+curl $B/lookups
+
+# Add a movie (Flow 7). For a series use "type":"series" and "episode_number":10
+curl -X POST $B/media -H "Authorization: Bearer $ADMIN" -H 'Content-Type: application/json' -d '{
+  "title": "Harry Potter and the Cursed Child",
+  "publish_date": "2027-07-01",
+  "age_rating": "PG-13", "status": "Upcoming",
+  "synopsis": "Albus Potter struggles with the weight of his family legacy.",
+  "category": "Live action", "country": "UK", "rating": 0,
+  "director_id": 4, "main_genre_id": 1,
+  "universe_id": 1, "sequel_parent_id": 8,
+  "type": "movie", "duration": 150,
+  "subgenre_ids": [8, 5], "actor_ids": [1, 2], "platform_ids": [3], "isbns": []
+}'
+
+# Save the new id for the next commands
+ID=$(mysql -uroot MediaDB -N -e "SELECT MAX(id) FROM Media"); echo $ID
+
+# Update only some fields (arrays replace the old links)
+curl -X PUT $B/media/$ID -H "Authorization: Bearer $ADMIN" \
+  -H 'Content-Type: application/json' -d '{"rating":8.4,"status":"Completed","platform_ids":[3,1]}'
+
+# Change genre (Flow 8)
+curl -X PUT $B/media/$ID/genres -H "Authorization: Bearer $ADMIN" \
+  -H 'Content-Type: application/json' -d '{"main_genre_id":5,"subgenre_ids":[1,14]}'
+
+# Delete (also removes it from watchlists, actors, platforms ...)
+curl -X DELETE $B/media/$ID -H "Authorization: Bearer $ADMIN"
+
+# Trigger demo: a sequel with NO universe_id joins its parent's universe by itself
+curl -X POST $B/media -H "Authorization: Bearer $ADMIN" -H 'Content-Type: application/json' -d '{
+  "title": "Iron Man 4", "publish_date": "2030-05-01", "age_rating": "PG-13", "status": "Upcoming",
+  "synopsis": "Tony returns.", "category": "Live action", "country": "USA", "rating": 0,
+  "director_id": 12, "main_genre_id": 4, "sequel_parent_id": 18, "type": "movie", "duration": 130
+}'
+ID=$(mysql -uroot MediaDB -N -e "SELECT MAX(id) FROM Media")
+curl -s $B/media/$ID | node -pe 'JSON.parse(require("fs").readFileSync(0)).universe_name'   # Marvel Cinematic Universe
+curl -X DELETE $B/media/$ID -H "Authorization: Bearer $ADMIN"
+
+
+---------------------------------------------------------------------
+ 7. STATISTICS  (Page 10, admin / developer)
+---------------------------------------------------------------------
+curl $B/stats -H "Authorization: Bearer $ADMIN"      # Flow 10: dashboard
+
+# Group by: genre universe category country type age_rating status director year
+# Sort by : count avg_rating watchlist name
+curl "$B/stats/group?by=universe&sort=watchlist" -H "Authorization: Bearer $ADMIN"
+curl "$B/stats/group?by=year&sort=name"          -H "Authorization: Bearer $ADMIN"
+
+# Profile of one media (watchlist count, rating rank, who saved it ...)
+curl $B/stats/media/14 -H "Authorization: Bearer $ADMIN"
+
+
+---------------------------------------------------------------------
+ 8. THUMBNAILS
+---------------------------------------------------------------------
+# Every media / book in a response has a "thumbnail" URL. Open one in the browser
+# or download it:
+curl -o hp1.jpg "$B/images/media/Harry%20Potter%20and%20the%20Philosopher's%20Stone.jpg"
+curl -o got1.jpeg "$B/images/books/A%20Game%20of%20Thrones,%20House%20of%20The%20Dragon/A%20Game%20of%20Thrones.jpeg"
+
+# Show only title -> thumbnail for every media
+curl -s "$B/media?limit=100" | node -pe 'JSON.parse(require("fs").readFileSync(0)).map(m=>m.title+" -> "+m.thumbnail).join("\n")'
+
+
+---------------------------------------------------------------------
+ 9. QUICK ERROR CHECKS
+---------------------------------------------------------------------
+curl -w ' [%{http_code}]\n' $B/media/999                    # 404 media not found
+curl -w ' [%{http_code}]\n' $B/watchlist                    # 401 please log in first
+curl -w ' [%{http_code}]\n' $B/stats -H "Authorization: Bearer $TOKEN"   # 403 wrong role
+curl -w ' [%{http_code}]\n' -X POST $B/watchlist -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"media_id":999}'              # 404 media not found

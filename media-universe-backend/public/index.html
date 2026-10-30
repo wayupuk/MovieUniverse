@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Home · Media Universe</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="site-header"></div>
+  <main>
+    <!-- Page 1: Home -->
+    <section id="hero" class="hero"><p class="loading">Loading…</p></section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>Explore universes</h2>
+        <a href="universes.html" class="muted">See all →</a>
+      </div>
+      <div id="universes" class="grid small"></div>
+    </section>
+
+    <section class="section">
+      <h2>Browse everything</h2>
+      <div class="toolbar">
+        <div class="segmented" id="type-filter">
+          <button data-type="" class="active">All</button>
+          <button data-type="movie">Movies</button>
+          <button data-type="series">Series</button>
+        </div>
+        <select id="genre-filter" aria-label="Genre"></select>
+        <select id="sort" aria-label="Sort">
+          <option value="rating">Top rated</option>
+          <option value="newest">Newest</option>
+          <option value="oldest">Oldest</option>
+          <option value="title">Title A–Z</option>
+        </select>
+        <span id="count" class="muted"></span>
+      </div>
+      <div id="grid" class="grid"></div>
+    </section>
+  </main>
+  <script src="js/common.js"></script>
+  <script src="js/home.js"></script>
+</body>
+</html>
