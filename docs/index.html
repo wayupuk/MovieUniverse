@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cross-referencing Media Universe</title>
+  <meta name="description" content="A CSS326 database project: pick a movie, series or book and see everything it is connected to.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="hero">
+    <div class="wrap">
+      <p class="eyebrow">CSS326 Database Programming Laboratory · Final project · 2026</p>
+      <h1>Cross-referencing Media Universe</h1>
+      <p class="lead">A website for movie, series and book fans. Pick a title and see everything it is
+        connected to: its sequels and remakes, the books it adapts, the rest of its universe and
+        where to watch it.</p>
+      <ul class="stats">
+        <li><strong>33</strong> titles</li>
+        <li><strong>30</strong> books</li>
+        <li><strong>76</strong> actors</li>
+        <li><strong>11</strong> platforms</li>
+        <li><strong>20</strong> database tables</li>
+      </ul>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section>
+      <h2>A look at the app</h2>
+      <p class="note">These are screenshots. The app needs Node.js and MySQL, so it runs on a server
+        and can't run on this page.</p>
+
+      <figure class="wide">
+        <img src="images/home.jpg" alt="Home page with the highest rated titles" width="1280" height="800" loading="lazy">
+        <figcaption><b>Home.</b> Highest rated titles, universes and the full catalogue with filters.</figcaption>
+      </figure>
+
+      <div class="grid">
+        <figure>
+          <img src="images/information.jpg" alt="Information page for one title" width="1280" height="800" loading="lazy">
+          <figcaption><b>Information page.</b> Details, the adaptation chain, books and the same universe.</figcaption>
+        </figure>
+        <figure>
+          <img src="images/universes.jpg" alt="Discover universes page" width="1280" height="800" loading="lazy">
+          <figcaption><b>Discover universes.</b> The top universes, with their titles, books and ratings.</figcaption>
+        </figure>
+        <figure>
+          <img src="images/universe.jpg" alt="One universe in release order" width="1280" height="800" loading="lazy">
+          <figcaption><b>Universe.</b> Every title in release order, loaded by a stored procedure.</figcaption>
+        </figure>
+        <figure>
+          <img src="images/statistics.jpg" alt="Statistics page for staff" width="1280" height="800" loading="lazy">
+          <figcaption><b>Statistics.</b> Staff-only charts and grouped reports from live data.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section>
+      <h2>Who can do what</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th scope="col">Can…</th><th scope="col">Guest</th><th scope="col">User</th><th scope="col">Admin</th><th scope="col">Developer</th></tr>
+          </thead>
+          <tbody>
+            <tr><th scope="row">Browse, search, genres, universes</th><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+            <tr><th scope="row">Keep a watchlist</th><td></td><td>✓</td><td></td><td></td></tr>
+            <tr><th scope="row">Add, edit and delete media</th><td></td><td></td><td>✓</td><td>✓</td></tr>
+            <tr><th scope="row">Statistics, see all accounts</th><td></td><td></td><td>✓</td><td>✓</td></tr>
+            <tr><th scope="row">Change roles, delete accounts</th><td></td><td></td><td></td><td>✓</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="columns">
+      <div>
+        <h2>How it's built</h2>
+        <ul>
+          <li><b>Database:</b> MySQL, with role subtypes, junction tables and recursive sequel and remake links</li>
+          <li><b>Backend:</b> Node.js, Express and mysql2</li>
+          <li><b>Frontend:</b> plain HTML, CSS and JavaScript</li>
+          <li><b>Logic in the database:</b> a stored procedure for universe pages and a trigger that puts a new sequel in its parent's universe</li>
+        </ul>
+      </div>
+      <div>
+        <h2>Security</h2>
+        <ul>
+          <li>Passwords hashed with bcrypt</li>
+          <li>Placeholders in SQL queries to prevent SQL injection</li>
+          <li>Roles checked on the server for every protected request</li>
+          <li>A least-privilege MySQL account for the app</li>
+          <li>Generic error messages for visitors, with details only in the server log</li>
+        </ul>
+      </div>
+    </section>
+
+    <section>
+      <h2>Team</h2>
+      <ul class="team">
+        <li><b>Wayupuk Sommuang</b><span>Project manager, backend design</span></li>
+        <li><b>Chanidapa Thongbor</b><span>User flow, frontend design</span></li>
+        <li><b>Sirikorn Nukpook</b><span>Database design</span></li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="wrap">Setup steps are in the README in this repository.</footer>
+</body>
+</html>

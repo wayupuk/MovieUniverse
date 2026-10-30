@@ -1,0 +1,64 @@
+/* docs/style.css — project page for GitHub Pages (same colours as the app) */
+
+:root {
+  --bg: #0f1115;
+  --surface: #171a21;
+  --border: #2a2f3a;
+  --text: #eef0f4;
+  --text-2: #b9c0cc;
+  --accent: #f2b84b;
+  --radius: 12px;
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html { color-scheme: dark; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 var(--font-body); }
+img { display: block; width: 100%; height: auto; }
+h1, h2 { font-family: var(--font-display); font-weight: 600; line-height: 1.2; }
+h1 { font-size: clamp(2rem, 6vw, 3.4rem); margin: 0 0 16px; }
+h2 { font-size: 1.5rem; margin: 0 0 14px; }
+
+.wrap { width: 100%; max-width: 1040px; margin: 0 auto; padding-left: 20px; padding-right: 20px; }
+
+.hero { border-bottom: 1px solid var(--border); padding: 64px 0 40px; }
+.eyebrow { color: var(--accent); font-size: .85rem; margin: 0 0 12px; }
+.lead { color: var(--text-2); font-size: 1.1rem; max-width: 62ch; margin: 0; }
+
+.stats { display: flex; flex-wrap: wrap; gap: 12px 32px; list-style: none; margin: 28px 0 0; padding: 0; color: var(--text-2); }
+.stats strong { display: block; color: var(--text); font: 600 1.6rem/1.2 var(--font-display); }
+
+main section { padding: 40px 0 0; }
+.note { color: var(--text-2); margin: 0 0 20px; }
+
+figure { margin: 0; }
+figure img { border: 1px solid var(--border); border-radius: var(--radius); }
+figcaption { color: var(--text-2); font-size: .9rem; margin-top: 8px; }
+figcaption b { color: var(--text); }
+.wide { margin-bottom: 24px; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+
+.table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); }
+table { width: 100%; border-collapse: collapse; background: var(--surface); }
+th, td { padding: 10px 14px; border-bottom: 1px solid var(--border); text-align: center; }
+tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
+th:first-child { text-align: left; font-weight: 400; }
+thead th { font-weight: 600; }
+td { color: var(--accent); }
+
+.columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; }
+.columns ul { margin: 0; padding-left: 20px; color: var(--text-2); }
+.columns li { margin-bottom: 8px; }
+.columns b { color: var(--text); }
+
+.team { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; list-style: none; margin: 0; padding: 0; }
+.team li { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+.team span { display: block; color: var(--text-2); font-size: .9rem; }
+
+footer { color: var(--text-2); font-size: .9rem; padding-top: 40px; padding-bottom: 40px; }
+
+@media (max-width: 720px) {
+  .hero { padding-top: 40px; }
+  .grid, .columns, .team { grid-template-columns: minmax(0, 1fr); }
+}
