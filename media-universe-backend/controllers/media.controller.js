@@ -9,6 +9,7 @@ const { addMediaThumbnail, addBookThumbnail } = require('../thumbnails');
 
 const isId = (v) => Number.isInteger(Number(v)) && Number(v) > 0;
 const isDate = (v) => /^\d{4}-\d{2}-\d{2}$/.test(v) && !isNaN(new Date(v));
+const isName = (v) => typeof v === 'string' && v.trim() !== '' && v.trim().length <= 100;
 
 // Text columns of Media and their max length (from the physical design).
 const TEXT_COLUMNS = {
@@ -44,8 +45,15 @@ function validateMedia(body, isCreate) {
     if (body.rating === null || body.rating === '' || isNaN(r) || r < 0 || r > 9.9)
       return 'rating must be a number from 0 to 9.9';
   }
-  for (const col of REQUIRED_ID_COLUMNS)
+  if (body.director_name !== undefined && !isName(body.director_name))
+    return 'director_name must be text of 1 to 100 characters';
+  if (body.actor_names !== undefined &&
+      (!Array.isArray(body.actor_names) || !body.actor_names.every(isName)))
+    return 'actor_names must be an array of names of 1 to 100 characters';
+  for (const col of REQUIRED_ID_COLUMNS) {
+    if (col === 'director_id' && body.director_name !== undefined) continue;
     if ((body[col] !== undefined || isCreate) && !isId(body[col])) return `${col} must be a positive id`;
+  }
   for (const col of OPTIONAL_ID_COLUMNS)
     if (body[col] !== undefined && body[col] !== null && !isId(body[col]))
       return `${col} must be a positive id or null`;
@@ -62,6 +70,27 @@ function validateMedia(body, isCreate) {
   for (const key of Object.keys(RELATIONS))
     if (body[key] !== undefined && !Array.isArray(body[key])) return `${key} must be an array`;
   return null;
+}
+
+// Id of the row with this name; the row is created when the name is new.
+async function findOrCreate(conn, table, idColumn, nameColumn, name) {
+  const [rows] = await conn.execute(
+    `SELECT ${idColumn} AS id FROM ${table} WHERE ${nameColumn} = ? ORDER BY ${idColumn} LIMIT 1`, [name]);
+  if (rows.length) return rows[0].id;
+  const [r] = await conn.execute(`INSERT INTO ${table} (${nameColumn}) VALUES (?)`, [name]);
+  return r.insertId;
+}
+
+// The Edit page sends people as typed names: turn them into director_id / actor_ids.
+async function resolveNames(conn, body) {
+  if (body.director_name !== undefined)
+    body.director_id = await findOrCreate(conn, 'Director', 'director_id', 'director_name', body.director_name.trim());
+  if (body.actor_names !== undefined) {
+    const ids = [];
+    for (const name of body.actor_names)
+      ids.push(await findOrCreate(conn, 'Actor', 'actor_id', 'actor_name', name.trim()));
+    body.actor_ids = [...(body.actor_ids || []).map(Number), ...ids];
+  }
 }
 
 // Replace the rows of every M:N relation that appears in the body.
@@ -175,7 +204,7 @@ exports.getOne = async (req, res) => {
     const media = rows[0];
 
     const [[subgenres], [actors], [platforms], [books], [sequelOf], [sequels],
-           [remakeOf], [remakes], [sameUniverse]] = await Promise.all([
+           [remakeOf], [remakes], [sameUniverse], [[visits]]] = await Promise.all([
       pool.execute(`SELECT g.genre_id, g.genre_name FROM Subgenre sg
                     JOIN Genre g ON g.genre_id = sg.genre_id
                     WHERE sg.id = ? ORDER BY g.genre_name`, [id]),
@@ -202,13 +231,18 @@ exports.getOne = async (req, res) => {
                     [id]),
       pool.execute(`SELECT id, title, publish_date, rating FROM Media
                     WHERE universe_id = ? AND id <> ? ORDER BY publish_date`,
-                    [media.universe_id, id])
+                    [media.universe_id, id]),
+      pool.execute(`SELECT COUNT(*) AS total,
+                           COALESCE(SUM(visited_at >= NOW() - INTERVAL 7 DAY), 0) AS last_7_days
+                    FROM Media_Visit WHERE id = ?`, [id])
     ]);
 
     // Every linked media / book carries its own thumbnail so the page can show banners.
     res.json({
       ...addMediaThumbnail(media),
       subgenres, actors, platforms,
+      visit_count: visits.total,
+      visits_last_7_days: Number(visits.last_7_days),
       books: books.map(addBookThumbnail),
       sequel_of: addMediaThumbnail(sequelOf[0]) || null,
       sequels: sequels.map(addMediaThumbnail),
@@ -221,10 +255,25 @@ exports.getOne = async (req, res) => {
   }
 };
 
+// POST /media/:id/visit   (everyone)
+// The information page calls this when it opens. Other pages read GET /media/:id without counting.
+exports.recordVisit = async (req, res) => {
+  const id = req.params.id;
+  if (!isId(id)) return res.status(400).json({ error: 'id must be a positive id' });
+  try {
+    await pool.execute('INSERT INTO Media_Visit (id) VALUES (?)', [id]);
+    res.status(204).end();
+  } catch (err) {
+    if (err.code === 'ER_NO_REFERENCED_ROW_2') return res.status(404).json({ error: 'media not found' });
+    serverError(res, err);
+  }
+};
+
 // POST /media   (admin / developer)
 // User Flow 7: administrator adds a new movie or series.
 // Body: Media columns + type ('movie' | 'series') + duration or episode_number
 //       + optional arrays subgenre_ids, actor_ids, platform_ids, isbns
+//       director_name / actor_names may replace director_id / actor_ids (new names are created)
 exports.create = async (req, res) => {
   const body = req.body;
   const problem = validateMedia(body, true);
@@ -233,6 +282,7 @@ exports.create = async (req, res) => {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
+    await resolveNames(conn, body);
     const [r] = await conn.execute(
       `INSERT INTO Media (${MEDIA_COLUMNS.join(', ')})
        VALUES (${MEDIA_COLUMNS.map(() => '?').join(', ')})`,
@@ -268,10 +318,10 @@ exports.update = async (req, res) => {
   if (body.sequel_parent_id == id || body.remake_parent_id == id)
     return res.status(400).json({ error: 'a media cannot be its own sequel or remake parent' });
 
-  const columns = MEDIA_COLUMNS.filter((col) => body[col] !== undefined);
+  const touchesColumns = [...MEDIA_COLUMNS, 'director_name'].some((col) => body[col] !== undefined);
   const touchesSubtype = body.duration !== undefined || body.episode_number !== undefined;
-  const touchesRelations = Object.keys(RELATIONS).some((key) => body[key] !== undefined);
-  if (!columns.length && !touchesSubtype && !touchesRelations)
+  const touchesRelations = [...Object.keys(RELATIONS), 'actor_names'].some((key) => body[key] !== undefined);
+  if (!touchesColumns && !touchesSubtype && !touchesRelations)
     return res.status(400).json({ error: 'nothing to update' });
 
   const conn = await pool.getConnection();
@@ -280,6 +330,8 @@ exports.update = async (req, res) => {
     if (found.length === 0) return res.status(404).json({ error: 'media not found' });
 
     await conn.beginTransaction();
+    await resolveNames(conn, body);
+    const columns = MEDIA_COLUMNS.filter((col) => body[col] !== undefined);
     if (columns.length)
       await conn.execute(
         `UPDATE Media SET ${columns.map((col) => `${col} = ?`).join(', ')} WHERE id = ?`,
@@ -359,7 +411,7 @@ exports.remove = async (req, res) => {
     await conn.execute('UPDATE Media SET sequel_parent_id = NULL WHERE sequel_parent_id = ?', [id]);
     await conn.execute('UPDATE Media SET remake_parent_id = NULL WHERE remake_parent_id = ?', [id]);
     for (const table of ['Subgenre', 'Watchlist', 'Media_Actor', 'Media_Platform',
-                         'Media_Book', 'Movies', 'Series'])
+                         'Media_Book', 'Media_Visit', 'Movies', 'Series'])
       await conn.execute(`DELETE FROM ${table} WHERE id = ?`, [id]);
     const [r] = await conn.execute('DELETE FROM Media WHERE id = ?', [id]);
 

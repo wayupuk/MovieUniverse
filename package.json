@@ -1,0 +1,29 @@
+{
+  "name": "movieuniverse",
+  "version": "1.0.0",
+  "description": "**CSS326 Database Programming Laboratory · Final project · Semester 1, 2026**",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wayupuk/MovieUniverse.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/wayupuk/MovieUniverse/issues"
+  },
+  "homepage": "https://github.com/wayupuk/MovieUniverse#readme",
+  "dependencies": {
+    "dotenv": "^18.0.9",
+    "express": "^5.3.0",
+    "mysql2": "^3.24.6"
+  }
+}

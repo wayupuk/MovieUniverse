@@ -7,17 +7,19 @@ const form = $('#media-form');
 
 // Plain fields of the form; ids match the API's field names.
 const TEXT_FIELDS = ['title', 'publish_date', 'age_rating', 'status', 'synopsis', 'category', 'country'];
-const ID_FIELDS = ['director_id', 'main_genre_id'];
 const OPTIONAL_ID_FIELDS = ['universe_id', 'sequel_parent_id', 'remake_parent_id'];
-// Checkbox lists: id of the container -> API field (numbers, except ISBNs)
-const LISTS = ['subgenre_ids', 'platform_ids', 'actor_ids', 'isbns'];
+// Multi-choice tag groups: id of the container -> API field (numbers, except ISBNs)
+const LISTS = ['subgenre_ids', 'platform_ids', 'isbns'];
+
+let actors = [];   // names shown as chips under the actor text field
 
 function msg(text, type = 'error') { const el = $('#form-msg'); el.textContent = text; el.className = `form-msg ${type}`; }
 
-function checkList(container, items, toOption) {
+// Tags: type 'radio' -> pick one, 'checkbox' -> pick many.
+function tagGroup(container, items, toOption, type = 'checkbox') {
   container.innerHTML = items.map((item) => {
     const [value, label] = toOption(item);
-    return `<label><input type="checkbox" value="${esc(value)}"> ${esc(label)}</label>`;
+    return `<label class="tag"><input type="${type}" name="${container.id}" value="${esc(value)}"><span>${esc(label)}</span></label>`;
   }).join('');
 }
 const checkedValues = (container) => [...container.querySelectorAll('input:checked')].map((i) => i.value);
@@ -26,8 +28,29 @@ function setChecked(container, values) {
   container.querySelectorAll('input').forEach((i) => { i.checked = wanted.has(i.value); });
 }
 
+// The main genre cannot also be a sub-genre.
+function syncSubgenres() {
+  const [main] = checkedValues($('#main_genre_id'));
+  $('#subgenre_ids').querySelectorAll('input').forEach((i) => {
+    i.disabled = i.value === main;
+    if (i.disabled) i.checked = false;
+  });
+}
+
+function renderActors() {
+  $('#actor-chips').innerHTML = actors.map((name, i) => `
+    <span class="chip">${esc(name)}<button type="button" data-index="${i}" aria-label="Remove ${esc(name)}">×</button></span>`).join('');
+}
+function addActor(text) {
+  const name = text.trim();
+  if (name && !actors.some((a) => a.toLowerCase() === name.toLowerCase())) actors.push(name);
+  renderActors();
+  $('#actor-input').value = '';
+}
+
+const selectedType = () => checkedValues($('#type'))[0];
 function showTypeFields() {
-  const isMovie = $('#type').value === 'movie';
+  const isMovie = selectedType() === 'movie';
   $('#duration-field').classList.toggle('hidden', !isMovie);
   $('#episodes-field').classList.toggle('hidden', isMovie);
 }
@@ -37,22 +60,25 @@ function readForm() {
   const body = {};
   TEXT_FIELDS.forEach((f) => { body[f] = $(`#${f}`).value.trim(); });
   body.rating = Number($('#rating').value);
-  ID_FIELDS.forEach((f) => { body[f] = Number($(`#${f}`).value); });
+  body.main_genre_id = Number(checkedValues($('#main_genre_id'))[0]);
+  body.director_name = $('#director_name').value.trim();
+  body.actor_names = actors;
   OPTIONAL_ID_FIELDS.forEach((f) => { body[f] = $(`#${f}`).value ? Number($(`#${f}`).value) : null; });
   LISTS.forEach((f) => {
     const values = checkedValues($(`#${f}`));
     body[f] = f === 'isbns' ? values : values.map(Number);
   });
-  if ($('#type').value === 'movie') body.duration = Number($('#duration').value);
+  if (selectedType() === 'movie') body.duration = Number($('#duration').value);
   else body.episode_number = Number($('#episode_number').value);
-  if (!editId) body.type = $('#type').value;
+  if (!editId) body.type = selectedType();
   return body;
 }
 
 // Friendly checks before sending (the API checks everything again).
 function checkForm(body) {
-  for (const f of ['title', 'publish_date', 'synopsis', 'country'])
+  for (const f of ['title', 'publish_date', 'synopsis', 'country', 'director_name'])
     if (!body[f]) return `${$(`label[for=${f}]`).textContent.replace(' *', '')} is required`;
+  if (!body.main_genre_id) return 'Main genre is required';
   if ($('#rating').value === '' || body.rating < 0 || body.rating > 9.9) return 'Rating must be between 0 and 9.9';
   if ('duration' in body && !(body.duration > 0)) return 'Duration is required for a movie';
   if ('episode_number' in body && !(body.episode_number > 0)) return 'Number of episodes is required for a series';
@@ -65,14 +91,18 @@ async function fillFromMedia(id) {
   document.title = `Edit ${m.title} · Media Universe`;
   TEXT_FIELDS.forEach((f) => { $(`#${f}`).value = m[f] ?? ''; });
   $('#rating').value = m.rating;
-  [...ID_FIELDS, ...OPTIONAL_ID_FIELDS].forEach((f) => { $(`#${f}`).value = m[f] ?? ''; });
-  $('#type').value = m.media_type === 'Movie' ? 'movie' : 'series';
-  $('#type').disabled = true;   // a movie cannot become a series
+  OPTIONAL_ID_FIELDS.forEach((f) => { $(`#${f}`).value = m[f] ?? ''; });
+  $('#director_name').value = m.director_name ?? '';
+  setChecked($('#type'), [m.media_type === 'Movie' ? 'movie' : 'series']);
+  $('#type').querySelectorAll('input').forEach((i) => { i.disabled = true; });   // a movie cannot become a series
   $('#duration').value = m.duration ?? '';
   $('#episode_number').value = m.episode_number ?? '';
+  setChecked($('#main_genre_id'), [m.main_genre_id]);
   setChecked($('#subgenre_ids'), m.subgenres.map((g) => g.genre_id));
+  syncSubgenres();
   setChecked($('#platform_ids'), m.platforms.map((p) => p.platform_id));
-  setChecked($('#actor_ids'), m.actors.map((a) => a.actor_id));
+  actors = m.actors.map((a) => a.actor_name);
+  renderActors();
   setChecked($('#isbns'), m.books.map((b) => b.ISBN));
   // a media cannot be its own parent
   for (const f of ['sequel_parent_id', 'remake_parent_id']) $(`#${f} option[value="${m.id}"]`)?.remove();
@@ -92,22 +122,35 @@ async function init() {
   $('#pick-media').value = editId || '';
   $('#pick-media').onchange = (e) => { if (e.target.value) location.href = `edit.html?id=${e.target.value}`; };
 
-  fillSelect($('#director_id'), lookups.directors, (d) => [d.director_id, d.director_name]);
-  fillSelect($('#main_genre_id'), lookups.genres, (g) => [g.genre_id, g.genre_name]);
+  $('#director-names').innerHTML = lookups.directors.map((d) => `<option value="${esc(d.director_name)}">`).join('');
+  $('#actor-names').innerHTML = lookups.actors.map((a) => `<option value="${esc(a.actor_name)}">`).join('');
+  tagGroup($('#main_genre_id'), lookups.genres, (g) => [g.genre_id, g.genre_name], 'radio');
   fillSelect($('#universe_id'), lookups.universes, (u) => [u.universe_id, u.universe_name], '— none —');
   fillSelect($('#sequel_parent_id'), allMedia, mediaOption, '— none —');
   fillSelect($('#remake_parent_id'), allMedia, mediaOption, '— none —');
-  checkList($('#subgenre_ids'), lookups.genres, (g) => [g.genre_id, g.genre_name]);
-  checkList($('#platform_ids'), lookups.platforms, (p) => [p.platform_id, p.platform_name]);
-  checkList($('#actor_ids'), lookups.actors, (a) => [a.actor_id, a.actor_name]);
-  checkList($('#isbns'), lookups.books, (b) => [b.ISBN, `${b.book_title}${b.volume > 1 ? ' vol. ' + b.volume : ''}`]);
+  tagGroup($('#subgenre_ids'), lookups.genres, (g) => [g.genre_id, g.genre_name]);
+  tagGroup($('#platform_ids'), lookups.platforms, (p) => [p.platform_id, p.platform_name]);
+  tagGroup($('#isbns'), lookups.books, (b) => [b.ISBN, `${b.book_title}${b.volume > 1 ? ' vol. ' + b.volume : ''}`]);
 
   $('#type').onchange = showTypeFields;
-  $('#actor-filter').oninput = (e) => {
-    const text = e.target.value.toLowerCase();
-    $('#actor_ids').querySelectorAll('label').forEach((l) => {
-      l.classList.toggle('hidden', !l.textContent.toLowerCase().includes(text));
-    });
+  $('#main_genre_id').onchange = syncSubgenres;
+
+  const actorInput = $('#actor-input');
+  actorInput.onkeydown = (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();   // Enter adds the actor, it does not save the form
+    addActor(actorInput.value);
+  };
+  // Picking a suggestion from the list adds it straight away.
+  actorInput.oninput = (e) => {
+    if (e.inputType === 'insertReplacementText' || !(e instanceof InputEvent)) addActor(actorInput.value);
+  };
+  $('#actor-add').onclick = () => { addActor(actorInput.value); actorInput.focus(); };
+  $('#actor-chips').onclick = (e) => {
+    const index = e.target.dataset.index;
+    if (index === undefined) return;
+    actors.splice(Number(index), 1);
+    renderActors();
   };
 
   if (editId) await fillFromMedia(editId);
@@ -116,6 +159,7 @@ async function init() {
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    addActor($('#actor-input').value);   // a name typed but not yet added still counts
     const body = readForm();
     const problem = checkForm(body);
     if (problem) return msg(problem);
@@ -146,18 +190,23 @@ async function init() {
     } catch (err) { msg(err.message); }
   };
 
-  $('#universe-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
+  const addUniverse = async () => {
     const out = $('#universe-msg');
     try {
       const u = await api('/universes', { method: 'POST', body: { universe_name: $('#universe_name').value } });
       $('#universe_id').insertAdjacentHTML('beforeend', `<option value="${u.universe_id}">${esc(u.universe_name)}</option>`);
       $('#universe_id').value = u.universe_id;
       $('#universe_name').value = '';
-      out.textContent = `Added “${u.universe_name}” and selected it above.`;
+      out.textContent = `Added “${u.universe_name}” and selected it.`;
       out.className = 'form-msg ok';
     } catch (err) { out.textContent = err.message; out.className = 'form-msg error'; }
-  });
+  };
+  $('#universe-add').onclick = addUniverse;
+  $('#universe_name').onkeydown = (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    addUniverse();
+  };
 }
 
 if (requireRole('admin', 'developer'))

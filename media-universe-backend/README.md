@@ -16,6 +16,7 @@ controllers/*.controller.js one file per feature
 routes/*.routes.js          URL -> controller function, and who may call it
 sql/seed_staff_accounts.sql demo admin and developer accounts (bcrypt hashes)
 sql/routines.sql            stored procedure get_universe_media + trigger media_inherit_universe
+sql/visits.sql              table Media_Visit: one row per visit to an information page
 sql/app_user.sql            least-privilege MySQL account media_app
 public/                     the 10 pages (HTML + css/style.css + js/)
 curl-commands.txt           ready-to-paste curl commands for every endpoint
@@ -81,7 +82,8 @@ change or account deletion logs that account out immediately.
 | Edit media · Page 9 | `PUT /media/:id` | admin, developer | send only the fields to change |
 | Delete media · Page 9 | `DELETE /media/:id` | admin, developer | also clears watchlist / junction rows |
 | 8 Change genre | `PUT /media/:id/genres` `{main_genre_id, subgenre_ids}` | admin, developer | |
-| 10 Statistics · Page 10 | `GET /stats` · `GET /stats/group?by=&sort=` · `GET /stats/media/:id` | admin, developer | |
+| Count a visit | `POST /media/:id/visit` | everyone | called when the information page opens |
+| 10 Statistics · Page 10 | `GET /stats` · `GET /stats/group?by=&sort=` · `GET /stats/visits?type=all\|movie\|series&days=7\|30\|90` · `GET /stats/media/:id` | admin, developer | |
 | Inspect users | `GET /accounts` | admin, developer | never returns password hashes |
 | Change role | `PUT /accounts/:id/role` `{role, contract?}` | **developer** | not your own account |
 | Delete account | `DELETE /accounts/:id` | **developer** | not your own account |
@@ -105,6 +107,8 @@ change or account deletion logs that account out immediately.
 
 `type` is `"movie"` (needs `duration` in minutes) or `"series"` (needs `episode_number`).
 The four arrays are optional; on `PUT` a sent array replaces the old links.
+`director_name` and `actor_names: []` can be sent instead of `director_id` and `actor_ids`:
+an existing person is reused by name, and a new name is added to the table.
 With `universe_id: null` and a `sequel_parent_id`, the trigger puts the new title in its
 parent's universe (here: Harry Potter).
 

@@ -48,6 +48,7 @@ Databasse_project/
 | 2 | `media-universe-backend/sql/seed_staff_accounts.sql` | demo admin + developer (bcrypt-hashed) |
 | 3 | `media-universe-backend/sql/routines.sql` | stored procedure + trigger |
 | 4 | `media-universe-backend/sql/app_user.sql` | MySQL account `media_app` for the app |
+| 5 | `media-universe-backend/sql/visits.sql` | table `Media_Visit` for the visit statistics |
 
 Running 1–3 again resets the data to a clean state (step 4 only needs to run once).
 

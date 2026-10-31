@@ -4,33 +4,32 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Edit · Media Universe</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/fonts.css">
 </head>
-<body>
+<body class="edit-page">
   <div id="site-header"></div>
   <main>
     <!-- Page 9: Edit page (admin / developer) -->
     <div class="page-head">
-      <div>
-        <h1 id="edit-title">Add a movie or series</h1>
-        <p class="muted">Admin and developer only. Changes are saved to MySQL straight away.</p>
-      </div>
-      <div class="toolbar" style="margin:0">
+      <h1 id="edit-title">Add a movie or series</h1>
+      <div class="toolbar">
         <select id="pick-media" aria-label="Media to edit"></select>
         <a class="btn" href="edit.html">+ New</a>
       </div>
     </div>
 
-    <div class="edit-layout">
-      <form id="media-form" class="panel" novalidate>
+    <form id="media-form" class="panel" novalidate>
+      <section class="form-section">
         <div class="form-grid">
           <div class="field wide"><label for="title">Title *</label><input id="title" maxlength="100" required></div>
-          <div class="field">
-            <label for="type">Type *</label>
-            <select id="type"><option value="movie">Movie</option><option value="series">Series</option></select>
+          <div class="field wide">
+            <span class="field-label">Media type *</span>
+            <div class="tags" id="type">
+              <label class="tag"><input type="radio" name="type" value="movie" checked><span>Movie</span></label>
+              <label class="tag"><input type="radio" name="type" value="series"><span>Series</span></label>
+            </div>
           </div>
           <div class="field" id="duration-field"><label for="duration">Duration (minutes) *</label><input id="duration" type="number" min="1" max="999.99" step="0.01"></div>
           <div class="field hidden" id="episodes-field"><label for="episode_number">Episodes *</label><input id="episode_number" type="number" min="1" step="1"></div>
@@ -48,41 +47,75 @@
             <label for="category">Category *</label>
             <select id="category"><option>Live action</option><option>Animation 2D</option><option>Animation 3D</option></select>
           </div>
-          <div class="field"><label for="country">Country *</label><input id="country" maxlength="50" list="countries" required>
+          <div class="field wide"><label for="country">Country *</label><input id="country" maxlength="50" list="countries" required>
             <datalist id="countries"><option>USA</option><option>UK</option><option>Japan</option><option>South Korea</option><option>China</option></datalist></div>
-          <div class="field"><label for="director_id">Director *</label><select id="director_id"></select></div>
-          <div class="field"><label for="main_genre_id">Main genre *</label><select id="main_genre_id"></select></div>
+          <div class="field wide"><label for="synopsis">Synopsis *</label><textarea id="synopsis" maxlength="255" required></textarea></div>
+        </div>
+      </section>
+
+      <section class="form-section">
+        <h2>Genres</h2>
+        <div class="field">
+          <span class="field-label">Main genre *</span>
+          <div class="tags" id="main_genre_id"></div>
+        </div>
+        <div class="field">
+          <span class="field-label">Sub-genres</span>
+          <div class="tags" id="subgenre_ids"></div>
+        </div>
+      </section>
+
+      <section class="form-section">
+        <h2>People</h2>
+        <div class="field">
+          <label for="director_name">Director *</label>
+          <input id="director_name" maxlength="100" list="director-names" autocomplete="off" placeholder="Type a name">
+          <datalist id="director-names"></datalist>
+        </div>
+        <div class="field">
+          <label for="actor-input">Actors</label>
+          <div class="inline-add">
+            <input id="actor-input" maxlength="100" list="actor-names" autocomplete="off" placeholder="Type a name and press Enter">
+            <button type="button" class="btn-add" id="actor-add" aria-label="Add actor">+</button>
+          </div>
+          <datalist id="actor-names"></datalist>
+          <div class="chips" id="actor-chips"></div>
+        </div>
+      </section>
+
+      <section class="form-section">
+        <h2>Connections</h2>
+        <div class="field">
+          <span class="field-label">Platforms</span>
+          <div class="tags" id="platform_ids"></div>
+        </div>
+        <div class="form-grid two-col">
           <div class="field"><label for="universe_id">Universe</label><select id="universe_id"></select>
             <p class="hint">Leave empty on a sequel/remake: the trigger copies the parent&#39;s universe.</p></div>
+          <div class="field">
+            <label for="universe_name">New universe</label>
+            <div class="inline-add">
+              <input id="universe_name" maxlength="100" autocomplete="off" placeholder="e.g. The Lion King Universe">
+              <button type="button" class="btn-add" id="universe-add" aria-label="Add universe">+</button>
+            </div>
+            <p class="form-msg" id="universe-msg"></p>
+          </div>
           <div class="field"><label for="sequel_parent_id">Sequel of</label><select id="sequel_parent_id"></select></div>
           <div class="field"><label for="remake_parent_id">Remake of</label><select id="remake_parent_id"></select></div>
-          <div class="field wide"><label for="synopsis">Synopsis *</label><textarea id="synopsis" maxlength="255" required></textarea></div>
-          <div class="field wide"><label>Sub-genres</label><div class="check-list" id="subgenre_ids"></div></div>
-          <div class="field wide"><label>Platforms</label><div class="check-list" id="platform_ids"></div></div>
-          <div class="field wide">
-            <label>Actors</label>
-            <input id="actor-filter" type="search" placeholder="Filter actors…" style="margin-bottom:6px;width:100%">
-            <div class="check-list" id="actor_ids"></div>
-          </div>
-          <div class="field wide"><label>Based on books</label><div class="check-list" id="isbns"></div></div>
         </div>
-        <div class="actions">
-          <button class="btn btn-primary" id="save-btn">Save</button>
-          <button type="button" class="btn btn-danger hidden" id="delete-btn">Delete this media</button>
-          <a class="btn hidden" id="view-btn">View page</a>
+        <div class="field">
+          <span class="field-label">Based on books</span>
+          <div class="tags" id="isbns"></div>
         </div>
-        <p class="form-msg" id="form-msg"></p>
-      </form>
+      </section>
 
-      <aside class="panel">
-        <h3>Add a universe</h3>
-        <form id="universe-form">
-          <div class="field"><input id="universe_name" maxlength="100" placeholder="e.g. The Lion King Universe" required></div>
-          <button class="btn">Add universe</button>
-          <p class="form-msg" id="universe-msg"></p>
-        </form>
-      </aside>
-    </div>
+      <div class="actions">
+        <button class="btn btn-primary" id="save-btn">Save</button>
+        <a class="btn hidden" id="view-btn">View page</a>
+        <button type="button" class="btn btn-danger hidden" id="delete-btn">Delete this media</button>
+      </div>
+      <p class="form-msg" id="form-msg"></p>
+    </form>
   </main>
   <script src="js/common.js"></script>
   <script src="js/edit.js"></script>
