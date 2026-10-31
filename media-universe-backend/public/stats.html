@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Statistics · Media Universe</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/fonts.css">
+  <link rel="stylesheet" href="css/stats.css">
 </head>
 <body>
   <div id="site-header"></div>
@@ -20,6 +20,36 @@
       </div>
     </div>
     <div id="tiles" class="tiles"></div>
+
+    <div class="section panel">
+      <div class="section-head visits-head">
+        <div>
+          <h3>Visits over time</h3>
+          <p class="muted" id="visits-summary"></p>
+        </div>
+        <div class="toolbar" style="margin:0">
+          <div class="segmented" id="visits-type" role="group" aria-label="Media type">
+            <button type="button" class="active" data-type="all" aria-pressed="true">All</button>
+            <button type="button" data-type="movie" aria-pressed="false">Movies</button>
+            <button type="button" data-type="series" aria-pressed="false">Series</button>
+          </div>
+          <select id="visits-days" aria-label="Time period">
+            <option value="7">Last 7 days</option>
+            <option value="30" selected>Last 30 days</option>
+            <option value="90">Last 90 days</option>
+          </select>
+        </div>
+      </div>
+      <div id="visits-body">
+        <div id="visits-chart" class="line-chart"></div>
+        <details class="chart-data">
+          <summary>Show data as a table</summary>
+          <div class="table-wrap"><table id="visits-table"></table></div>
+        </details>
+        <h3 class="visits-top-title">Most visited</h3>
+        <div id="top-visited" class="bars"></div>
+      </div>
+    </div>
 
     <div class="section chart-grid">
       <div class="panel"><h3>Media per main genre</h3><div id="by-genre" class="bars"></div></div>

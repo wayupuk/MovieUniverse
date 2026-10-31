@@ -41,6 +41,7 @@ function renderDetail() {
             <dt>Universe</dt><dd>${m.universe_id ? `<a href="universe.html?id=${m.universe_id}" style="color:var(--accent)">${esc(m.universe_name)}</a>` : '<span class="muted">Standalone</span>'}</dd>
             <dt>Watch on</dt><dd>${m.platforms.length ? m.platforms.map((p) => esc(p.platform_name)).join(', ') : '<span class="muted">—</span>'}</dd>
             <dt>Cast</dt><dd>${m.actors.length ? m.actors.map((a) => esc(a.actor_name)).join(', ') : '<span class="muted">—</span>'}</dd>
+            <dt>Visits</dt><dd>${m.visit_count.toLocaleString()} <span class="muted">· ${m.visits_last_7_days.toLocaleString()} in the last 7 days</span></dd>
           </dl>
           <div class="actions" id="user-actions"></div>
           <div id="staff-actions"></div>
@@ -152,4 +153,11 @@ async function load() {
   await Promise.all([renderUserActions(), renderStaffActions()]);
 }
 
-load().catch((err) => toast(err.message, 'error'));
+// Count this visit once per page open, then load (so the number shown includes it).
+// load() also reruns after staff edits, which must not count again.
+async function recordVisit() {
+  if (!id) return;
+  try { await api(`/media/${encodeURIComponent(id)}/visit`, { method: 'POST' }); } catch { /* the page still works without it */ }
+}
+
+recordVisit().then(load).catch((err) => toast(err.message, 'error'));

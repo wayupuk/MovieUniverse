@@ -1,0 +1,13 @@
+/* public/css/fonts.css — Poppins, served from public/fonts. Link it after style.css on every page. */
+@font-face {
+  font-family: "Poppins";
+  src: url("../fonts/Poppins-Regular.ttf");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Poppins";
+  src: url("../fonts/Poppins-Bold.ttf");
+  font-weight: 700;
+  font-display: swap;
+}

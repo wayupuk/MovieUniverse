@@ -17,7 +17,8 @@ exports.overview = async (req, res) => {
                (SELECT COUNT(*) FROM Book)      AS books,
                (SELECT COUNT(*) FROM Universe)  AS universes,
                (SELECT COUNT(*) FROM User)      AS accounts,
-               (SELECT COUNT(*) FROM Watchlist) AS watchlist_entries`),
+               (SELECT COUNT(*) FROM Watchlist) AS watchlist_entries,
+               (SELECT COUNT(*) FROM Media_Visit) AS visits`),
       pool.query(`
         SELECT 'user' AS role, COUNT(*) AS count FROM Normal_User
         UNION ALL SELECT 'admin', COUNT(*) FROM Admin
@@ -112,6 +113,56 @@ exports.group = async (req, res) => {
   }
 };
 
+// GET /stats/visits?type=all|movie|series&days=7|30|90
+// Visits per day (days without visits count as 0) and the most visited titles in that period.
+const VISIT_TYPE_JOIN = {
+  all:    '',
+  movie:  'JOIN Movies t ON t.id = v.id',
+  series: 'JOIN Series t ON t.id = v.id'
+};
+const VISIT_DAYS = [7, 30, 90];
+
+exports.visits = async (req, res) => {
+  const type = req.query.type || 'all';
+  const days = Number(req.query.days || 30);
+  const typeJoin = VISIT_TYPE_JOIN[type];
+  if (typeJoin === undefined)
+    return res.status(400).json({ error: `type must be one of: ${Object.keys(VISIT_TYPE_JOIN).join(', ')}` });
+  if (!VISIT_DAYS.includes(days))
+    return res.status(400).json({ error: `days must be one of: ${VISIT_DAYS.join(', ')}` });
+
+  try {
+    const inPeriod = 'v.visited_at >= CURDATE() - INTERVAL ? DAY';
+    const [[[{ today }]], [perDay], [top]] = await Promise.all([
+      pool.query("SELECT DATE_FORMAT(CURDATE(), '%Y-%m-%d') AS today"),
+      pool.query(`
+        SELECT DATE_FORMAT(v.visited_at, '%Y-%m-%d') AS day, COUNT(*) AS visits
+        FROM Media_Visit v ${typeJoin}
+        WHERE ${inPeriod}
+        GROUP BY day`, [days - 1]),
+      pool.query(`
+        SELECT m.id, m.title, COUNT(*) AS visits
+        FROM Media_Visit v ${typeJoin} JOIN Media m ON m.id = v.id
+        WHERE ${inPeriod}
+        GROUP BY m.id, m.title
+        ORDER BY visits DESC, m.title
+        LIMIT 5`, [days - 1])
+    ]);
+
+    const counts = new Map(perDay.map((row) => [row.day, row.visits]));
+    const series = [];
+    for (let back = days - 1; back >= 0; back--) {
+      const date = new Date(`${today}T00:00:00Z`);
+      date.setUTCDate(date.getUTCDate() - back);
+      const day = date.toISOString().slice(0, 10);
+      series.push({ day, visits: counts.get(day) || 0 });
+    }
+    res.json({ type, days, total: series.reduce((sum, p) => sum + p.visits, 0), series, top });
+  } catch (err) {
+    serverError(res, err);
+  }
+};
+
 // GET /stats/media/:id — the profile of one media for analysis.
 exports.mediaProfile = async (req, res) => {
   try {
@@ -119,6 +170,7 @@ exports.mediaProfile = async (req, res) => {
     const [rows] = await pool.execute(`
       SELECT x.*,
         (SELECT COUNT(*) FROM Watchlist w      WHERE w.id = x.id)  AS watchlist_count,
+        (SELECT COUNT(*) FROM Media_Visit v    WHERE v.id = x.id)  AS visit_count,
         (SELECT COUNT(*) FROM Media_Actor ma   WHERE ma.id = x.id) AS actor_count,
         (SELECT COUNT(*) FROM Media_Platform p WHERE p.id = x.id)  AS platform_count,
         (SELECT COUNT(*) FROM Media_Book mb    WHERE mb.id = x.id) AS book_count,
