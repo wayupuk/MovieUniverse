@@ -96,7 +96,7 @@ npm start                     # → http://localhost:4500
 | 6 | Discover universes (top 10) | `universes.html` | everyone |
 | 7 | Universe — release-order timeline + books | `universe.html?id=` | everyone |
 | 8 | My watchlist | `watchlist.html` | user |
-| 9 | Edit — add / edit / delete media, add universe | `edit.html` | admin, developer |
+| 9 | Edit — add / edit / delete media, add / delete universe | `edit.html` | admin, developer |
 | 10 | Statistics + accounts | `stats.html` | admin, developer |
 
 ## Roles
@@ -105,7 +105,7 @@ npm start                     # → http://localhost:4500
 |---|:-:|:-:|:-:|:-:|
 | browse, search, genres, universes, information page | ✓ | ✓ | ✓ | ✓ |
 | keep a watchlist | | ✓ | | |
-| add / edit / delete media, change genre, add universe | | | ✓ | ✓ |
+| add / edit / delete media, change genre, add / delete universe | | | ✓ | ✓ |
 | statistics, see all accounts | | | ✓ | ✓ |
 | change roles, delete accounts | | | | ✓ |
 
